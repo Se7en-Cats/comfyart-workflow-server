@@ -14,7 +14,7 @@
 
 ```bash
 cd <你的 ComfyUI 目录>/custom_nodes
-git clone https://github.com/LILIPIG-A/comfyart-workflow-server.git
+git clone https://github.com/Se7en-Cats/comfyart-workflow-server.git
 ```
 
 打开管理界面：http://127.0.0.1:8811/ArtWorkflow （ComfyUI 左下角菜单里也有「ComfyArt 工作流服务」按钮）。服务随 ComfyUI 自动启动/退出，不用单独开。健康检查 `GET /health`。
