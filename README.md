@@ -32,7 +32,7 @@ pip install -r requirements.txt
 python start-server.py          # 或 uvicorn main:app --host 0.0.0.0 --port 8811
 ```
 
-打开 http://127.0.0.1:8811/（别名 /ArtWorkflow）进入管理界面。健康检查 `GET /health`。
+打开管理界面：http://127.0.0.1:8811/ 或 http://127.0.0.1:8811/ArtWorkflow（同一个界面，后者更好记）。健康检查 `GET /health`。
 
 环境变量（都有默认值，一般不用设）：
 
