@@ -10,6 +10,23 @@
 
 前置：本机已装好 ComfyUI（建议已安装 ComfyArt 插件，内置工作流用的节点大部分来自它）。
 
+### 方式一：作为 ComfyUI 插件安装（推荐）
+
+放进 ComfyUI 的 `custom_nodes/` 目录，跟随 ComfyUI 自动启动/退出，首次启动会自动安装依赖：
+
+```bash
+cd <你的 ComfyUI 目录>/custom_nodes
+git clone https://github.com/LILIPIG-A/comfyart-workflow-server.git
+```
+
+重启 ComfyUI 后：
+- 服务随 ComfyUI 一起启动（端口 8811），ComfyUI 退出时跟着退出；
+- 服务已在跑时自动复用，不会重复启动；
+- ComfyUI 左下角菜单底部会出现「ComfyArt 工作流服务」按钮，点它直接打开管理界面；
+- 多套 ComfyUI 同时开也没关系：谁先起来谁拉起服务，自动探测当前 ComfyUI 端口。
+
+### 方式二：独立运行
+
 ```bash
 pip install -r requirements.txt
 python start-server.py          # 或 uvicorn main:app --host 0.0.0.0 --port 8811
@@ -29,7 +46,9 @@ python start-server.py          # 或 uvicorn main:app --host 0.0.0.0 --port 881
 
 仓库**不包含**内置工作流文件（它们来自 ComfyArt 上游）。装好后在管理界面点「检查更新」，确认后「一键更新」，即从上游拉取全部已映射的工作流到 `data/builtin/`，并自动按本机模型清单适配路径。之后每次打开会自动检查上游更新并提示，更新前自动备份原文件。
 
-### Windows 后台运行（可选）
+### Windows 开机自启（方式二可选）
+
+不装进 custom_nodes、又想随登录自启时，可注册计划任务（失败自动重试），实际入口是 `start-server.py`，日志写到 `data/server.log`：
 
 ```powershell
 Register-ScheduledTask -TaskName ComfyArtWorkflowServer `
