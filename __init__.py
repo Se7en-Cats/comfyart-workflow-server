@@ -112,5 +112,6 @@ def _maybe_launch() -> None:
 
 
 # ComfyUI 在 import 本包时即触发；独立运行（python start-server.py）不会走到这里。
+# 放后台线程执行，不阻塞 ComfyUI 启动流程。
 if os.environ.get("COMFYART_NO_AUTOSTART") != "1":
-    _maybe_launch()
+    threading.Thread(target=_maybe_launch, daemon=True).start()
