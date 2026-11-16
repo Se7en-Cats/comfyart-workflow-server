@@ -44,12 +44,28 @@ def _missing_deps() -> list:
     return missing
 
 
+def _comfy_port_from_argv():
+    """从 ComfyUI 启动命令行解析 --port（服务应连拉起它的这个实例）。"""
+    argv = sys.argv[1:]
+    for i, a in enumerate(argv):
+        if a == "--port" and i + 1 < len(argv):
+            return argv[i + 1]
+        if a.startswith("--port="):
+            return a.split("=", 1)[1]
+    return None
+
+
 def _start_server(parent_pid: int) -> None:
     """用当前 Python（ComfyUI 的环境）拉起服务子进程。"""
     try:
+        env = dict(os.environ)
+        port = _comfy_port_from_argv()
+        if port and port.isdigit():
+            env.setdefault("COMFY_PORT", port)
         subprocess.Popen(
             [sys.executable, os.path.join(BASE, "start-server.py"), "--parent", str(parent_pid)],
             cwd=BASE,
+            env=env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),

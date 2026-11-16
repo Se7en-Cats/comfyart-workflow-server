@@ -63,6 +63,12 @@ def main() -> None:
     os.makedirs(os.path.dirname(LOG), exist_ok=True)
     sys.stdout = open(LOG, "a", encoding="utf-8", buffering=1)
     sys.stderr = sys.stdout
+    # 由 ComfyUI 插件拉起时，固定连「拉起本服务的那个 ComfyUI 实例」；
+    # 用户显式设了 COMFY_URL 时不覆盖。
+    _comfy_port = os.environ.get("COMFY_PORT")
+    if _comfy_port and _comfy_port.isdigit():
+        os.environ.setdefault("COMFY_URL", f"http://127.0.0.1:{_comfy_port}")
+        print(f"[launcher] ComfyUI 端口 {_comfy_port} -> 固定连接该实例")
     print("\n=== starting ComfyArt Workflow Server ===")
     if args.parent:
         _watch_parent(args.parent)
