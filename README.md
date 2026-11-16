@@ -8,55 +8,20 @@
 
 ## 安装与启动
 
-前置：本机已装好 ComfyUI（建议已安装 ComfyArt 插件，内置工作流用的节点大部分来自它）。
+前置：本机已装好 ComfyUI（建议已安装 ComfyArt 插件）。
 
-### 方式一：作为 ComfyUI 插件安装（推荐）
-
-放进 ComfyUI 的 `custom_nodes/` 目录，跟随 ComfyUI 自动启动/退出，首次启动会自动安装依赖：
+放进 ComfyUI 的 `custom_nodes/` 目录，重启 ComfyUI 即完成安装（首次启动会自动装依赖）：
 
 ```bash
 cd <你的 ComfyUI 目录>/custom_nodes
 git clone https://github.com/LILIPIG-A/comfyart-workflow-server.git
 ```
 
-重启 ComfyUI 后：
-- 服务随 ComfyUI 一起启动（端口 8811），ComfyUI 退出时跟着退出；
-- 服务已在跑时自动复用，不会重复启动；
-- ComfyUI 左下角菜单底部会出现「ComfyArt 工作流服务」按钮，点它直接打开管理界面；
-- 多套 ComfyUI 同时开也没关系：谁先起来谁拉起服务，自动探测当前 ComfyUI 端口。
-
-### 方式二：独立运行
-
-```bash
-pip install -r requirements.txt
-python start-server.py          # 或 uvicorn main:app --host 0.0.0.0 --port 8811
-```
-
-打开管理界面：http://127.0.0.1:8811/ 或 http://127.0.0.1:8811/ArtWorkflow（同一个界面，后者更好记）。健康检查 `GET /health`。
-
-环境变量（都有默认值，一般不用设）：
-
-- `COMFY_URL`：本机 ComfyUI 地址，默认 `http://127.0.0.1:8188`（本机地址会按 8188/8189/8187/8190 自动探测）
-- `COMFYART_WF_DATA`：数据目录，默认 `./data`
-- `PORT`：本服务端口，默认 8811
-- `COMFYART_GITHUB_PROXY`：拉取上游仓库时用的代理（直连 GitHub 困难时设置）
-- `COMFYART_EXTRA_MARKERS=0`：关闭本项目扩展标记（`@image3`、`@saveMask`），退回作者的 21 个标记
+打开管理界面：http://127.0.0.1:8811/ArtWorkflow （ComfyUI 左下角菜单里也有「ComfyArt 工作流服务」按钮）。服务随 ComfyUI 自动启动/退出，不用单独开。健康检查 `GET /health`。
 
 ### 首次使用：一键拉取内置工作流
 
-仓库**不包含**内置工作流文件（它们来自 ComfyArt 上游）。装好后在管理界面点「检查更新」，确认后「一键更新」，即从上游拉取全部已映射的工作流到 `data/builtin/`，并自动按本机模型清单适配路径。之后每次打开会自动检查上游更新并提示，更新前自动备份原文件。
-
-### Windows 开机自启（方式二可选）
-
-不装进 custom_nodes、又想随登录自启时，可注册计划任务（失败自动重试），实际入口是 `start-server.py`，日志写到 `data/server.log`：
-
-```powershell
-Register-ScheduledTask -TaskName ComfyArtWorkflowServer `
-  -Action (New-ScheduledTaskAction -Execute "<venv>\Scripts\pythonw.exe" -Argument '"<本目录>\start-server.py"' -WorkingDirectory "<本目录>") `
-  -Trigger (New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME") `
-  -Settings (New-ScheduledTaskSettingsSet -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1))
-Start-ScheduledTask -TaskName ComfyArtWorkflowServer
-```
+仓库**不包含**内置工作流文件（它们来自 ComfyArt 上游）。装好后在管理界面点「检查更新」，确认后「一键更新」，即从上游拉取全部已映射的工作流到 `data/builtin/`，并自动按本机模型清单适配路径。之后每次打开会自动检查上游更新并提示，更新前自动备份原文件。国内直连 GitHub 困难时，先设置环境变量 `COMFYART_GITHUB_PROXY` 走代理再点更新。
 
 ## 在 ComfyUI 里给节点打标记
 
