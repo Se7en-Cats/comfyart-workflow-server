@@ -18,6 +18,36 @@
     }
     report("js-loaded");
 
+    // 诊断：把页面上所有含 ComfyArt 文本的元素（含 shadow DOM）上报，用于定位真实挂载点
+    function diag() {
+        try {
+            const parts = [];
+            const visit = (root, depth) => {
+                for (const el of root.querySelectorAll("*")) {
+                    const t = (el.textContent || "").trim();
+                    if (t.includes("ComfyArt") && t.length <= 30) {
+                        const r = el.getBoundingClientRect();
+                        const cls = (el.className || "").toString().slice(0, 24);
+                        parts.push(
+                            "d" + depth + ":" + el.tagName.toLowerCase() +
+                            "#" + (el.id || "").slice(0, 10) +
+                            "." + cls + ":" + Math.round(r.width) + "x" + Math.round(r.height)
+                        );
+                        if (parts.length >= 10) return;
+                    }
+                    if (el.shadowRoot) visit(el.shadowRoot, depth + 1);
+                }
+            };
+            visit(document, 0);
+            fetch(
+                "http://127.0.0.1:8811/health?cwfs_diag=" + encodeURIComponent(parts.join("|")),
+                { mode: "no-cors" }
+            ).catch(() => {});
+        } catch (e) {}
+    }
+    setTimeout(diag, 2500);
+    setTimeout(diag, 8000);
+
     function makeButton() {
         const btn = document.createElement("button");
         btn.id = BTN_ID;
