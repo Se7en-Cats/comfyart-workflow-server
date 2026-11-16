@@ -11,7 +11,7 @@ app.registerExtension({
     actionBarButtons: [
         {
             icon: "icon-[lucide--workflow]",
-            label: "工作流服务",
+            label: "ArtWorkflow",
             tooltip: "打开工作流管理界面（端口 8811）",
             onClick: () => window.open(URL, "_blank"),
         },
@@ -22,7 +22,7 @@ app.registerExtension({
 function makeMenuButton() {
     const btn = document.createElement("button");
     btn.id = BTN_ID;
-    btn.textContent = "ComfyArt 工作流服务";
+    btn.textContent = "ArtWorkflow";
     btn.title = "打开工作流管理界面（端口 8811）";
     btn.style.cssText =
         "display:block;width:100%;margin-top:8px;padding:8px 12px;" +
