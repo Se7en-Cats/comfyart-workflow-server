@@ -593,6 +593,13 @@ async def _artworkflow_page():
     return FileResponse(_WEB_DIR / "index.html")
 
 
+# 根路径统一跳转到 /ArtWorkflow，保证地址栏总是同一个入口
+@app.get("/", include_in_schema=False)
+async def _root_redirect():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/ArtWorkflow", status_code=302)
+
+
 # 管理界面（必须挂在所有 API 路由之后，作为兜底）
 if _WEB_DIR.exists():
     app.mount("/", StaticFiles(directory=_WEB_DIR, html=True), name="web")

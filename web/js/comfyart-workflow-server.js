@@ -1,7 +1,7 @@
 // ComfyArt Workflow Server 启动入口
 // 纯 DOM 轮询挂载，不依赖任何前端版本 API：
-// 1) 优先挂在顶栏「ComfyArt」按钮旁边（新版前端）
-// 2) 老版前端挂左下角 .comfy-menu
+// 1) 优先挂在顶栏「ComfyArt」按钮旁边（穿透 shadow DOM 查找）
+// 2) 老版前端挂左下角可见的 .comfy-menu
 // 3) 都没有则右下角悬浮按钮兜底
 (() => {
     const URL = "http://127.0.0.1:8811/ArtWorkflow";
@@ -39,40 +39,63 @@
         return btn;
     }
 
+    // 穿透 open shadow DOM 找文本包含 ComfyArt 的最小元素
     function findTopbarComfyArt() {
-        // 宽松匹配：任意层级元素文本恰好是 ComfyArt，取最深的那个
-        const all = document.querySelectorAll("*");
         let best = null;
-        for (const el of all) {
-            if (el.id === BTN_ID) continue;
-            if ((el.textContent || "").trim() !== "ComfyArt") continue;
-            if (!best || el.children.length < best.children.length) best = el;
-        }
+        const visit = (root) => {
+            for (const el of root.querySelectorAll("*")) {
+                if (el.id === BTN_ID) continue;
+                const t = (el.textContent || "").trim();
+                if (t === "ComfyArt" || (t.includes("ComfyArt") && t.length <= 15)) {
+                    if (!best || el.textContent.length < best.textContent.length) best = el;
+                }
+                if (el.shadowRoot) visit(el.shadowRoot);
+            }
+        };
+        visit(document);
         if (!best) return null;
         // 向上找最近的可点击容器（button / a / [role=button]），挂到它后面
         let host = best;
-        while (host && host !== document.body) {
+        while (host && host !== document.body && host.parentNode) {
             const tag = host.tagName.toLowerCase();
             if (tag === "button" || tag === "a" || host.getAttribute("role") === "button") break;
-            host = host.parentElement;
+            host = host.parentNode;
         }
         return host && host !== document.body ? host : best;
     }
 
-    function tryMountTopbar() {
+    function menuVisible(menu) {
+        if (!menu || !menu.isConnected) return false;
+        const style = window.getComputedStyle(menu);
+        if (style.display === "none" || style.visibility === "hidden") return false;
+        const rect = menu.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+    }
+
+    function findVisibleMenu() {
+        const menus = document.querySelectorAll(".comfy-menu");
+        for (const m of menus) if (menuVisible(m)) return m;
+        return null;
+    }
+
+    function currentBtn() {
+        return document.getElementById(BTN_ID);
+    }
+
+    function mountTopbar() {
         const anchor = findTopbarComfyArt();
         if (!anchor) return false;
-        if (document.getElementById(BTN_ID)) return true; // 已挂
+        if (currentBtn()) return true;
         const btn = makeButton();
         anchor.insertAdjacentElement("afterend", btn);
         report("mounted-topbar");
         return true;
     }
 
-    function tryMountMenu() {
-        const menu = document.querySelector(".comfy-menu");
+    function mountMenu() {
+        const menu = findVisibleMenu();
         if (!menu) return false;
-        if (document.getElementById(BTN_ID)) return true;
+        if (currentBtn()) return true;
         const btn = makeButton();
         btn.style.marginTop = "8px";
         btn.style.width = "100%";
@@ -82,11 +105,11 @@
         return true;
     }
 
-    function tryMountFloating() {
-        if (document.getElementById(BTN_ID)) return true;
+    function mountFloating() {
+        if (currentBtn()) return true;
         const btn = makeButton();
         btn.style.cssText =
-            "position:fixed;right:16px;bottom:16px;z-index:9999;" +
+            "position:fixed;right:16px;bottom:40px;z-index:99999;" +
             "background:#1f6feb;color:#fff;border:none;border-radius:8px;" +
             "padding:10px 14px;font-size:13px;cursor:pointer;" +
             "box-shadow:0 2px 8px rgba(0,0,0,.35);";
@@ -95,13 +118,28 @@
         return true;
     }
 
-    function tick() {
-        // 按钮还在 DOM 里就什么都不做（轻量检查）；被前端重渲染弄丢后自动补挂
-        if (document.getElementById(BTN_ID)) return;
-        tryMountTopbar() || tryMountMenu() || tryMountFloating();
+    // 已挂在 menu/floating 时，一旦找到顶栏锚点就搬过去
+    function upgradeToTopbar() {
+        const anchor = findTopbarComfyArt();
+        if (!anchor) return;
+        const btn = currentBtn();
+        if (!btn) return;
+        if (btn.parentNode === anchor.parentNode && btn.previousElementSibling === anchor) return;
+        btn.remove();
+        anchor.insertAdjacentElement("afterend", btn);
+        report("moved-topbar");
     }
 
-    // DOM 就绪即开始，之后每 1.5s 兜底（前端重渲染弄丢按钮时自动补挂）
+    function tick() {
+        const btn = currentBtn();
+        if (!btn) {
+            mountTopbar() || mountMenu() || mountFloating();
+            return;
+        }
+        // 按钮在 menu 或 floating 里时，持续尝试搬到顶栏
+        upgradeToTopbar();
+    }
+
     if (document.body) tick();
     else window.addEventListener("DOMContentLoaded", tick);
     setInterval(tick, 1500);
