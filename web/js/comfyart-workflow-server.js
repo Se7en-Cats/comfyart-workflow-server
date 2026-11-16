@@ -29,22 +29,23 @@
     }
 
     function findTopbarComfyArt() {
-        const nodes = document.querySelectorAll("button, a, [role='button'], span, div");
-        for (const el of nodes) {
-            // 排除我们的按钮本身，避免自匹配
+        // 宽松匹配：任意层级元素文本恰好是 ComfyArt，取最深的那个
+        const all = document.querySelectorAll("*");
+        let best = null;
+        for (const el of all) {
             if (el.id === BTN_ID) continue;
-            const text = (el.textContent || "").trim();
-            if (text === "ComfyArt" && el.children.length <= 1) {
-                // 取最深的匹配：文本直接在自己的文本节点上
-                const ownText = Array.from(el.childNodes)
-                    .filter((n) => n.nodeType === Node.TEXT_NODE)
-                    .map((n) => n.textContent)
-                    .join("")
-                    .trim();
-                if (ownText === "ComfyArt") return el;
-            }
+            if ((el.textContent || "").trim() !== "ComfyArt") continue;
+            if (!best || el.children.length < best.children.length) best = el;
         }
-        return null;
+        if (!best) return null;
+        // 向上找最近的可点击容器（button / a / [role=button]），挂到它后面
+        let host = best;
+        while (host && host !== document.body) {
+            const tag = host.tagName.toLowerCase();
+            if (tag === "button" || tag === "a" || host.getAttribute("role") === "button") break;
+            host = host.parentElement;
+        }
+        return host && host !== document.body ? host : best;
     }
 
     function tryMountTopbar() {
@@ -81,6 +82,8 @@
     }
 
     function tick() {
+        // 按钮还在 DOM 里就什么都不做（轻量检查）；被前端重渲染弄丢后自动补挂
+        if (document.getElementById(BTN_ID)) return;
         tryMountTopbar() || tryMountMenu() || tryMountFloating();
     }
 
