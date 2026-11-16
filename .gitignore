@@ -1,0 +1,18 @@
+# 虚拟环境 / 缓存
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# 运行时数据（本机私有，不入库）
+data/
+run.log
+builtin/
+
+# 开发验证截图
+ui-*.png
+
+# 临时文件
+*.tmp
+Thumbs.db
+.DS_Store

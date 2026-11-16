@@ -1,0 +1,6 @@
+# 行尾统一：提交时转 LF，检出时按平台
+* text=auto
+*.py text eol=lf
+*.md text
+*.html text
+*.bat text eol=crlf
