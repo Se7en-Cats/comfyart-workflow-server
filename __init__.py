@@ -20,6 +20,9 @@ PORT = int(os.environ.get("PORT", "8811"))
 HEALTH_URL = f"http://127.0.0.1:{PORT}/health"
 REQUIREMENTS = os.path.join(BASE, "requirements.txt")
 
+# 声明前端扩展目录（ComfyUI 据此把 web/**/*.js 挂载到 /extensions）
+WEB_DIRECTORY = "./web"
+
 _DEPS = ("fastapi", "uvicorn", "httpx", "pydantic", "multipart")
 
 
