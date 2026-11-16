@@ -136,8 +136,8 @@ Start-ScheduledTask -TaskName ComfyArtWorkflowServer
 
 ## 许可证
 
-- 本项目：MIT License，见 [LICENSE](LICENSE)。
-- `markers.py`（marker 规范/校验/填充）与 `actions.py`（槽位定义）移植自 [jtydhr88/ComfyArt](https://github.com/jtydhr88/ComfyArt)（MIT License），已在文件头保留上游声明。
+- 本项目：**PolyForm Noncommercial License 1.0.0**，见 [LICENSE](LICENSE)。个人使用、学习研究、非商业项目可自由使用与修改；**商业使用需另行授权**（要商用请联系作者）。
+- `markers.py`（marker 规范/校验/填充）与 `actions.py`（槽位定义）移植自 [jtydhr88/ComfyArt](https://github.com/jtydhr88/ComfyArt)（MIT License），版权声明保留于各文件头部。
 - 内置工作流文件不随本仓库分发；「一键更新」时从上游 ComfyArt 仓库（MIT License）拉取到本机 `data/builtin/`。
 - `autofill.py` 算法内核来自 `model-autofill-kit`。
 - 本项目与 ComfyArt 官方无任何关联。
