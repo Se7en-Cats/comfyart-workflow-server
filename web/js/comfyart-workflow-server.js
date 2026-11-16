@@ -18,35 +18,44 @@
     }
     report("js-loaded");
 
-    // 诊断：把页面上所有含 ComfyArt 文本的元素（含 shadow DOM）上报，用于定位真实挂载点
+    // 诊断：上报页面顶部区域的元素结构（含 iframe / open-shadow），
+    // 用于定位顶栏「ComfyArt」按钮到底在哪一层 DOM
     function diag() {
         try {
-            const parts = [];
-            const visit = (root, depth) => {
+            const q = [];
+            const iframes = document.querySelectorAll("iframe");
+            iframes.forEach((f, i) => {
+                q.push("if" + i + ":" + ((f.src || f.id || "").slice(0, 44)));
+            });
+            const top = [];
+            const walk = (root, depth) => {
                 for (const el of root.querySelectorAll("*")) {
-                    const t = (el.textContent || "").trim();
-                    if (t.includes("ComfyArt") && t.length <= 30) {
-                        const r = el.getBoundingClientRect();
-                        const cls = (el.className || "").toString().slice(0, 24);
-                        parts.push(
-                            "d" + depth + ":" + el.tagName.toLowerCase() +
-                            "#" + (el.id || "").slice(0, 10) +
-                            "." + cls + ":" + Math.round(r.width) + "x" + Math.round(r.height)
+                    const r = el.getBoundingClientRect();
+                    if (r.top < 170 && r.width > 30 && r.height > 8) {
+                        const name = el.tagName.toLowerCase() +
+                            "#" + (el.id || "").slice(0, 12) +
+                            "." + String(el.className || "").slice(0, 18);
+                        top.push(
+                            "d" + depth + ":" + name + ":" +
+                            Math.round(r.left) + "," + Math.round(r.top) + "," +
+                            Math.round(r.width) + "x" + Math.round(r.height) +
+                            (el.shadowRoot ? "[o]" : "")
                         );
-                        if (parts.length >= 10) return;
+                        if (top.length >= 13) { q.push("T=" + top.join("|")); return; }
                     }
-                    if (el.shadowRoot) visit(el.shadowRoot, depth + 1);
+                    if (el.shadowRoot) walk(el.shadowRoot, depth + 1);
                 }
             };
-            visit(document, 0);
+            walk(document, 0);
+            if (!q.some((s) => s.startsWith("T="))) q.push("T=" + top.join("|"));
             fetch(
-                "http://127.0.0.1:8811/health?cwfs_diag=" + encodeURIComponent(parts.join("|")),
+                "http://127.0.0.1:8811/health?cwfs_diag=" + encodeURIComponent(q.join(" & ")),
                 { mode: "no-cors" }
             ).catch(() => {});
         } catch (e) {}
     }
-    setTimeout(diag, 2500);
-    setTimeout(diag, 8000);
+    // 顶栏可能晚渲染，分多轮上报
+    [2500, 8000, 20000, 45000, 90000].forEach((ms) => setTimeout(diag, ms));
 
     function makeButton() {
         const btn = document.createElement("button");
