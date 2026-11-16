@@ -7,6 +7,17 @@
     const URL = "http://127.0.0.1:8811/ArtWorkflow";
     const BTN_ID = "__cwfs_launcher";
 
+    // 执行信标：脚本运行到哪里都会向 8811 打点（记入 server.log），便于排查
+    function report(stage) {
+        try {
+            fetch(
+                "http://127.0.0.1:8811/health?cwfs_js=" + encodeURIComponent(stage) + "&t=" + Date.now(),
+                { mode: "no-cors" }
+            ).catch(() => {});
+        } catch (e) {}
+    }
+    report("js-loaded");
+
     function makeButton() {
         const btn = document.createElement("button");
         btn.id = BTN_ID;
@@ -54,6 +65,7 @@
         if (document.getElementById(BTN_ID)) return true; // 已挂
         const btn = makeButton();
         anchor.insertAdjacentElement("afterend", btn);
+        report("mounted-topbar");
         return true;
     }
 
@@ -66,6 +78,7 @@
         btn.style.width = "100%";
         btn.style.display = "block";
         menu.appendChild(btn);
+        report("mounted-menu");
         return true;
     }
 
@@ -78,6 +91,7 @@
             "padding:10px 14px;font-size:13px;cursor:pointer;" +
             "box-shadow:0 2px 8px rgba(0,0,0,.35);";
         document.body.appendChild(btn);
+        report("mounted-floating");
         return true;
     }
 
