@@ -580,6 +580,92 @@ async def replace_models(action: str, body: ReplaceBody, file: Optional[str] = N
     return {"ok": True, "file": fn, "changed": changed}
 
 
+# ============ 对外只读接口：供其他软件读取本服务的适配能力 ============
+_PUB_CACHE: dict[str, Any] = {"registry": None, "registry_at": 0.0}
+
+
+def _public_registry() -> Optional[dict]:
+    """本机模型注册表，60 秒缓存，避免每次调用都拉 ComfyUI /object_info。"""
+    now = time.time()
+    if _PUB_CACHE["registry"] is None or now - _PUB_CACHE["registry_at"] > 60:
+        import local_adapt
+        _PUB_CACHE["registry"] = local_adapt.fetch_registry()
+        _PUB_CACHE["registry_at"] = now
+    return _PUB_CACHE["registry"]
+
+
+def _public_safe_rel(path: str) -> Path:
+    """防路径穿越：相对路径解析后必须落在数据目录内。"""
+    base = store.BASE.resolve()
+    target = (base / path).resolve()
+    if target != base and not str(target).startswith(str(base) + os.sep):
+        raise HTTPException(400, "非法路径")
+    return target
+
+
+@app.get("/public/models")
+async def public_models():
+    """本机模型清单（分类）+ 缺失模型下载直链 + 等效别名。"""
+    registry = _public_registry()
+    if registry is None:
+        return {"ok": False, "error": "ComfyUI 不可达，拿不到模型清单"}
+    return {
+        "ok": True,
+        "comfy_url": comfy.get_comfy_url(),
+        "models": registry,
+        "downloads": models.MODEL_DOWNLOADS,
+        "equivalent": models.EQUIVALENT_MODELS,
+    }
+
+
+@app.get("/public/adapt")
+async def public_adapt_state():
+    """已适配工作流状态（上游 blob、本机路径适配记录）。"""
+    import local_adapt
+    return {"ok": True, **local_adapt.get_adapt_state()}
+
+
+@app.get("/public/workflows")
+async def public_workflows():
+    """内置与用户工作流文件清单（相对路径）。"""
+    builtin = sorted(
+        str(p.relative_to(store.BASE)).replace("\\", "/")
+        for p in store.BUILTIN_DIR.rglob("*.json")
+        if ".backup" not in p.parts and p.name != ".adapted.json"
+    )
+    user = sorted(
+        str(p.relative_to(store.BASE)).replace("\\", "/")
+        for p in store.WF_DIR.rglob("*.json")
+    )
+    return {"ok": True, "builtin": builtin, "user": user}
+
+
+@app.get("/public/workflows/{path:path}")
+async def public_workflow_file(path: str):
+    """读取工作流 JSON 内容（data/ 内的相对路径）。"""
+    target = _public_safe_rel(path)
+    if not target.is_file():
+        raise HTTPException(404, "文件不存在")
+    try:
+        return json.loads(target.read_text(encoding="utf-8"))
+    except Exception as e:
+        raise HTTPException(400, f"JSON 解析失败：{e}")
+
+
+class PublicMatchBody(BaseModel):
+    graph: dict
+    registry: Optional[dict] = None
+
+
+@app.post("/public/match")
+async def public_match(body: PublicMatchBody):
+    """传工作流 JSON，返回模型引用扫描、缺失、本机匹配建议与下载直链。"""
+    registry = body.registry or _public_registry()
+    if registry is None:
+        return {"ok": False, "error": "ComfyUI 不可达，拿不到本机模型清单"}
+    return {"ok": True, "refs": models.diff(body.graph, registry)}
+
+
 # 入口别名：http://127.0.0.1:8811/ArtWorkflow 直达管理界面，
 # 地址栏保持 /ArtWorkflow（前端单文件、API 全绝对路径，不受影响）。
 # 必须注册在 mount("/") 之前，否则会被兜底 mount 吞掉。
