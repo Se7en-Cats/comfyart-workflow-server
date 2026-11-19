@@ -89,6 +89,11 @@ MODEL_DOWNLOADS = {
         "https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/depth_anything_v2_vitl.pth",
         "官方权重（mockup 贴图深度预处理器，约 1.3GB；comfyui_controlnet_aux 也会首次使用时自动下载）",
     ),
+    # ---- MiniMax H3 文本编码器（nvfp4_awq 变体，ComfyArt 官方工作流默认引用） ----
+    "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors": (
+        "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "MiniMax H3 文本编码器（约 14.6GB，放 text_encoders/）；官方推荐优先用 int8_convrot 版本，本机已装 int8 时可直接换用",
+    ),
 }
 
 
