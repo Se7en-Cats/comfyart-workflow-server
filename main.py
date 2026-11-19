@@ -666,54 +666,6 @@ async def public_match(body: PublicMatchBody):
     return {"ok": True, "refs": models.diff(body.graph, registry)}
 
 
-# ============ 模型体检与别名补齐（解决「工作流模型名本机没有」） ============
-
-
-class ModelScanBody(BaseModel):
-    extra_dirs: list[str] = []
-
-
-class AliasItem(BaseModel):
-    kind: str
-    alias: str
-    target: str
-
-
-class AliasApplyBody(BaseModel):
-    items: list[AliasItem]
-
-
-@app.get("/modelfix/state")
-async def modelfix_state():
-    """模型根目录探测结果 + 已建别名记录。"""
-    import aliases
-    return {"ok": True, **aliases.state()}
-
-
-@app.post("/modelfix/scan")
-async def modelfix_scan(body: ModelScanBody):
-    """体检：扫描工作流里的模型引用，列出缺失项与可补别名建议。
-
-    extra_dirs 可传入其他软件的工作流目录（如 ComfyArt 的 workflows 目录）。
-    """
-    import aliases
-    registry = _public_registry()
-    if registry is None:
-        return {"ok": False, "error": "ComfyUI 不可达，拿不到本机模型清单"}
-    result = aliases.scan(registry, body.extra_dirs)
-    return {"ok": True, **result}
-
-
-@app.post("/modelfix/apply")
-async def modelfix_apply(body: AliasApplyBody):
-    """一键补别名：为缺失的模型名创建硬链接指向本机已有的同基名文件。"""
-    import aliases
-    result = aliases.apply_aliases([i.model_dump() for i in body.items])
-    if result["created"]:
-        _PUB_CACHE["registry"] = None   # 让模型清单缓存失效，立即反映新名字
-    return {"ok": True, **result}
-
-
 # 入口别名：http://127.0.0.1:8811/ArtWorkflow 直达管理界面，
 # 地址栏保持 /ArtWorkflow（前端单文件、API 全绝对路径，不受影响）。
 # 必须注册在 mount("/") 之前，否则会被兜底 mount 吞掉。
