@@ -635,6 +635,22 @@ button.small{padding:6px 10px;font-size:var(--t-2);border-radius:var(--r-xs)}
   .fields{grid-template-columns:1fr}
   h2{font-size:var(--t-6)}
 }
+/* ---- 模型体检弹层 ---- */
+.mf-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;display:flex;align-items:center;justify-content:center}
+.mf-card{width:min(760px,92vw);max-height:84vh;overflow:auto;background:var(--bg-2,#191b20);border:1px solid var(--line,#303540);border-radius:var(--r-3,14px);padding:var(--s-5,20px);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.mf-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--s-3,12px)}
+.mf-head h3{margin:0}
+.mf-hint{color:var(--t-dim,#8a93a5);font-size:var(--t-2,13px);line-height:1.6;margin:0 0 var(--s-3,12px)}
+.mf-label{display:block;font-size:var(--t-2,13px);color:var(--t-dim,#8a93a5);margin-bottom:6px}
+#mfDirs{width:100%;box-sizing:border-box;font-family:var(--font-mono,monospace);font-size:var(--t-2,13px);padding:8px 10px;border-radius:8px;border:1px solid var(--line,#303540);background:var(--bg-1,#101216);color:inherit;resize:vertical}
+.mf-actions{display:flex;gap:var(--s-2,8px);margin:var(--s-3,12px) 0}
+.mf-result{display:flex;flex-direction:column;gap:6px;font-size:var(--t-2,13px)}
+.mf-item{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.03);border-left:3px solid var(--line,#303540)}
+.mf-item.alias{border-left-color:#3ba55c}
+.mf-item.dl{border-left-color:#d9822b}
+.mf-item .k{font-family:var(--font-mono,monospace);color:var(--t-dim,#8a93a5)}
+.mf-item .to{color:#3ba55c}
+.mf-empty{color:var(--t-dim,#8a93a5);padding:10px 0}
 </style>
 </head>
 <body>
@@ -648,6 +664,7 @@ button.small{padding:6px 10px;font-size:var(--t-2);border-radius:var(--r-xs)}
   </div>
   <span class="status" id="hfStatus">…</span>
   <span class="spacer"></span>
+  <button id="mfBtn" class="ghost" title="扫描工作流模型引用，自动补别名">模型体检</button>
   <div class="url-group">
     <span class="cap">ComfyUI</span>
     <input id="comfyUrl" placeholder="http://127.0.0.1:8188">
@@ -666,6 +683,22 @@ button.small{padding:6px 10px;font-size:var(--t-2);border-radius:var(--r-xs)}
   <aside id="list"></aside>
   <section id="detail"></section>
 </main>
+<div id="mfModal" class="mf-modal" hidden>
+  <div class="mf-card">
+    <div class="mf-head">
+      <h3>模型体检与别名补齐</h3>
+      <button id="mfClose" class="ghost">关闭</button>
+    </div>
+    <p class="mf-hint">扫描工作流里的模型引用。本机有「同款不同量化版本」的，可以一键补别名（硬链接，不占额外硬盘）。外部工作流目录可选填（如 ComfyArt 的 workflows 目录），每行一个。</p>
+    <label class="mf-label" for="mfDirs">外部工作流目录（可选）</label>
+    <textarea id="mfDirs" rows="3" placeholder="H:\...\custom_nodes\ComfyArt\workflows"></textarea>
+    <div class="mf-actions">
+      <button id="mfScan">开始体检</button>
+      <button id="mfApply" class="ghost" disabled>一键补别名（0）</button>
+    </div>
+    <div id="mfResult" class="mf-result"></div>
+  </div>
+</div>
 <script>
 const $ = s => document.querySelector(s);
 let actions = [], current = null, workflowCache = {};
@@ -705,6 +738,62 @@ async function loadConfig(){
     }catch(e){ alert('保存失败: '+e.message); }
   };
 }
+
+/* ---- 模型体检与别名补齐 ---- */
+let mfItems = [];
+$('#mfBtn').onclick = () => { $('#mfModal').hidden = false; };
+$('#mfClose').onclick = () => { $('#mfModal').hidden = true; };
+$('#mfModal').addEventListener('click', e => { if(e.target.id === 'mfModal') $('#mfModal').hidden = true; });
+
+$('#mfScan').onclick = async () => {
+  const dirs = $('#mfDirs').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const box = $('#mfResult');
+  box.innerHTML = '<div class="mf-empty">扫描中…</div>';
+  $('#mfApply').disabled = true;
+  try{
+    const r = await api('/modelfix/scan', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({extra_dirs: dirs})});
+    const missing = r.missing || [];
+    mfItems = missing.filter(m => m.action === 'alias');
+    $('#mfApply').textContent = `一键补别名（${mfItems.length}）`;
+    $('#mfApply').disabled = mfItems.length === 0;
+    if(!missing.length){
+      box.innerHTML = `<div class="mf-empty">检查了 ${r.scanned} 个工作流，模型引用全部可用 ✓</div>`;
+      return;
+    }
+    box.innerHTML = `<div class="mf-hint">检查了 ${r.scanned} 个工作流，发现 ${missing.length} 个缺失引用：</div>`
+      + missing.map(m => {
+          const k = `<span class="k">${m.kind} / ${m.current}</span>`;
+          if(m.action === 'alias'){
+            return `<div class="mf-item alias">可补别名 ${k} → <span class="to">${m.candidates[0]}</span></div>`;
+          }
+          const dl = m.download_url ? `，下载：${m.download_url}` : '';
+          return `<div class="mf-item dl">需下载 ${k}${dl}</div>`;
+        }).join('');
+  }catch(e){
+    box.innerHTML = `<div class="mf-empty">体检失败：${e.message}</div>`;
+  }
+};
+
+$('#mfApply').onclick = async () => {
+  if(!mfItems.length) return;
+  const items = mfItems.map(m => ({kind: m.kind, alias: m.current, target: m.candidates[0]}));
+  const box = $('#mfResult');
+  box.innerHTML = '<div class="mf-empty">正在创建别名…</div>';
+  try{
+    const r = await api('/modelfix/apply', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({items})});
+    const ok = r.created || [], bad = r.failed || [];
+    box.innerHTML = `<div class="mf-hint">补别名完成：成功 ${ok.length} 个，失败 ${bad.length} 个</div>`
+      + ok.map(c => `<div class="mf-item alias">已补 ${c.kind} / ${c.alias}</div>`).join('')
+      + bad.map(c => `<div class="mf-item dl">失败 ${c.kind} / ${c.alias}：${c.error || ''}</div>`).join('');
+    $('#mfApply').disabled = true;
+    $('#mfApply').textContent = '一键补别名（0）';
+    mfItems = [];
+  }catch(e){
+    box.innerHTML = `<div class="mf-empty">补别名失败：${e.message}</div>`;
+  }
+};
 
 async function loadActions(){
   const r = await api('/actions');
